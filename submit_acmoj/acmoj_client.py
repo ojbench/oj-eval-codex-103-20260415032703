@@ -95,6 +95,20 @@ class ACMOJClient:
 
         return result
 
+    def submit_file(self, problem_id: int, language: str, filepath: str) -> Optional[Dict]:
+        try:
+            with open(filepath, 'r') as f:
+                code_content = f.read()
+        except Exception as e:
+            print(f"Failed to read file {filepath}: {e}")
+            return None
+        data = {"language": language, "code": code_content}
+        result = self._make_request("POST", f"/problem/{problem_id}/submit", data=data)
+        if result and 'id' in result:
+            self._save_submission_id(result['id'])
+
+        return result
+
     def get_submission_detail(self, submission_id: int) -> Optional[Dict]:
         return self._make_request("GET", f"/submission/{submission_id}")
 
@@ -122,6 +136,12 @@ def main():
     abort_parser = subparsers.add_parser("abort", help="Abort submission evaluation")
     abort_parser.add_argument("--submission-id", type=int, required=True, help="Submission ID")
 
+    # Single-file submission sub-command
+    submit_file_parser = subparsers.add_parser("submit-file", help="Submit a single source file as code")
+    submit_file_parser.add_argument("--problem-id", type=int, required=True, help="Problem ID")
+    submit_file_parser.add_argument("--language", type=str, default="cpp", help="Language (e.g., cpp)")
+    submit_file_parser.add_argument("--file", type=str, required=True, help="Path to source file to submit")
+
     args = parser.parse_args()
 
     if not args.token:
@@ -136,6 +156,8 @@ def main():
         result = client.get_submission_detail(args.submission_id)
     elif args.command == "abort":
         result = client.abort_submission(args.submission_id)
+    elif args.command == "submit-file":
+        result = client.submit_file(args.problem_id, args.language, args.file)
 
     if result:
         print(json.dumps(result))
